@@ -1,26 +1,290 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  /* Rule colour for every row separator on the item detail page — between
+     SILHOUETTE / COLOR(S) / MATERIAL, the fragrance note tiers, the
+     PERFORMANCE stats, and the WHEN TO APPLY rows.
+
+     One token instead of the black/10 + dark:white/10 pair that used to be
+     repeated at each call site, so the weight of every rule is tunable from
+     one line.
+
+     Solid greys, not a tint of the foreground at low alpha. An earlier pass
+     used 7%/8% alpha and the lines came out around #efefef on white — present
+     in the markup but effectively invisible on screen. These are opaque mid
+     greys: a dark grey against the light ground, a light grey against the dark
+     one, so a rule reads as a deliberate line in both modes rather than a
+     smudge that only survives on one.
+
+     They are NOT contrast-matched to each other, and that's deliberate. On
+     white #8a8a8a gives 3.45:1; matching that number in dark mode would mean
+     roughly #666, which is a mid grey rather than the light grey the design
+     calls for. A 1px line on a dark ground also needs to sit relatively
+     lighter than the equivalent line on white to read as crisp rather than
+     muddy. If dark mode ever feels too assertive, #6e6e6e is the
+     contrast-matched value to drop to. */
+  --hairline: #8a8a8a;
+
+  /* Body typeface, switched from SETTINGS → FONT. One variable read by `body`
+     below, redefined per [data-font] value — so adding a face means adding a
+     block here and an entry to FONT_OPTIONS, and nothing else has to know.
+
+     SYSTEM (the default, and what the app has always used) needs no
+     [data-font] block: it's this value, so an unset or unrecognised attribute
+     falls back to it rather than to nothing.
+
+     Every stack keeps Arial/Helvetica behind the chosen face. next/font
+     self-hosts these, so they're not going to fail to arrive from a CDN — but
+     a font can still be blocked or fail to decode, and falling back to a
+     system sans beats falling back to a serif. */
+  --app-font: Arial, Helvetica, sans-serif;
+}
+
+/* Higher specificity than the bare :root above, so these win when the
+   attribute is present. */
+:root[data-font="OUTFIT"] {
+  --app-font: var(--font-outfit), Arial, Helvetica, sans-serif;
+}
+
+:root[data-font="JAKARTA"] {
+  --app-font: var(--font-jakarta), Arial, Helvetica, sans-serif;
+}
+
+:root[data-font="VARELA"] {
+  --app-font: var(--font-varela), Arial, Helvetica, sans-serif;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-hairline: var(--hairline);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+.dark {
+  --background: #0a0a0a;
+  --foreground: #ededed;
+  /* Light grey against the dark ground — see the note in :root for why this
+     is lighter than a strict contrast match with the light-mode value. */
+  --hairline: #9a9a9a;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--app-font);
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+main {
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.4s ease-out both;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.25s ease-out both;
+}
+
+/* Soft radial pool of light behind the garment on a closet grid tile, so a
+   photo sits on a surface instead of floating on a flat panel.
+
+   Centred at 42% down rather than 50%: the bottom of the card is the caption
+   row, so the garment's optical centre sits above the card's geometric one,
+   and a gradient centred at 50% would put its brightest point under the item
+   name instead of under the piece.
+
+   The two modes are NOT one gradient at two alphas — they run in opposite
+   directions. On the near-black ground a white highlight in the middle reads
+   as light falling on the tile. On white there is no headroom above the
+   background to brighten INTO, so the light-mode version darkens the corners
+   instead and lets the untouched centre read as the bright part. Same
+   perceived effect, inverted ingredients, because the ground is inverted.
+
+   Light also runs weaker: 3% against dark's 5%. Rendered side by side at
+   matched alphas the light version reads noticeably heavier — a dark veil
+   over white is more conspicuous than a light one over black — so matching
+   the numbers would not have matched the effect.
+
+   Painted as background-image over the card's existing background-color, so
+   it layers onto the flat fill rather than replacing it. */
+.tile-spotlight {
+  background-image: radial-gradient(
+    75% 60% at 50% 42%,
+    rgba(0, 0, 0, 0) 0%,
+    rgba(0, 0, 0, 0.03) 100%
+  );
+}
+
+.dark .tile-spotlight {
+  background-image: radial-gradient(
+    75% 60% at 50% 42%,
+    rgba(255, 255, 255, 0.05) 0%,
+    rgba(255, 255, 255, 0) 70%
+  );
+}
+
+/* Tactile "press" feedback for the header trash-can (delete mode) toggle —
+   alongside, not instead of, its existing red/black color change. Grows
+   past full size then overshoots slightly small before settling back at
+   1, like a quick squeeze — rather than just growing and stopping, which
+   would read more like a hover-zoom than a press. Applied to a span keyed
+   on a click counter (see app/page.tsx), since remounting is what
+   guarantees this restarts from frame 0 on every single click, even two
+   rapid ones in a row. */
+@keyframes trashPress {
+  0% {
+    transform: scale(1);
+  }
+  35% {
+    transform: scale(1.3);
+  }
+  65% {
+    transform: scale(0.88);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.animate-trash-press {
+  animation: trashPress 0.35s ease-out;
+  transform-origin: center;
+}
+
+/* Shared by both the icon silhouette shimmer and the border shimmer below
+   — same keyframe, same duration/easing, same animation-delay applied at
+   the call site in app/page.tsx — so the two read as one cohesive sweep
+   moving left to right together instead of two independently-timed
+   effects. Only a single background-position value is set here on
+   purpose: when a class has more than one background layer (the border
+   class does — see below), the CSS spec repeats a too-short
+   background-position list across every layer, so this same keyframe
+   drives all of them without needing a border-specific variant.
+
+   Direction note: with background-size wider than the element (250%),
+   background-position works like a viewport sliding over an oversized
+   image — INcreasing the percentage slides that viewport rightward
+   through the image, which makes any fixed point in the image (like the
+   bright highlight band) appear to drift LEFT on screen. So to make the
+   highlight itself travel left-to-right, the keyframe has to animate the
+   percentage from high to low (150% down to -150%), not low to high. */
+@keyframes shimmerSweep {
+  from {
+    background-position: 150% 0;
+  }
+  to {
+    background-position: -150% 0;
+  }
+}
+
+.animate-shimmer {
+  background-image: linear-gradient(
+    90deg,
+    rgba(0, 0, 0, 0.06) 0%,
+    rgba(0, 0, 0, 0.06) 35%,
+    rgba(0, 0, 0, 0.25) 50%,
+    rgba(0, 0, 0, 0.06) 65%,
+    rgba(0, 0, 0, 0.06) 100%
+  );
+  background-size: 250% 100%;
+  animation: shimmerSweep 2.6s ease-in-out infinite;
+}
+
+.dark .animate-shimmer {
+  background-image: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.08) 0%,
+    rgba(255, 255, 255, 0.08) 35%,
+    rgba(255, 255, 255, 0.3) 50%,
+    rgba(255, 255, 255, 0.08) 65%,
+    rgba(255, 255, 255, 0.08) 100%
+  );
+}
+
+/* Left-to-right shimmer on the pending-upload skeleton tile's border,
+   grayscale/monochrome to match the silhouette shimmer above rather than
+   a colored effect. The technique: two stacked backgrounds on the same
+   element, one solid (clipped to the padding-box, i.e. only the inside)
+   and one a wide gradient (clipped to the border-box, i.e. including the
+   border itself). Since the two clip regions don't overlap, the
+   border-box gradient only ever shows through the border ring. Animating
+   that gradient layer's background-position — with the same shimmerSweep
+   keyframe, duration, and animation-delay as .animate-shimmer — makes the
+   two sweeps move in identical rhythm. border-color is set to transparent
+   so the real border-width shows the gradient layer instead of a flat
+   color. The solid inner layer uses --background, so its own position
+   shifting (harmless — repeating a solid color) doesn't show; only the
+   border-box gradient layer's motion is visible. This still replaces the
+   border-neutral-200/dark:border-neutral-800 utility classes also present
+   on the same element in app/page.tsx — background-clip layering fully
+   overrides plain border-color, so those classes are harmless to leave in
+   place. Unlike the old colored version, this needs an explicit .dark
+   variant since the shimmer tones themselves (not just alpha over
+   --background) need to flip for the dark border to read correctly. */
+.animate-shimmer-border {
+  border-color: transparent;
+  background-image:
+    linear-gradient(var(--background), var(--background)),
+    linear-gradient(
+      90deg,
+      #e5e5e5 0%,
+      #e5e5e5 35%,
+      #a3a3a3 50%,
+      #e5e5e5 65%,
+      #e5e5e5 100%
+    );
+  background-origin: padding-box, border-box;
+  background-clip: padding-box, border-box;
+  background-size: 100% 100%, 250% 100%;
+  background-position: 0 0, 150% 0;
+  animation: shimmerSweep 2.6s ease-in-out infinite;
+}
+
+.dark .animate-shimmer-border {
+  background-image:
+    linear-gradient(var(--background), var(--background)),
+    linear-gradient(
+      90deg,
+      #262626 0%,
+      #262626 35%,
+      #525252 50%,
+      #262626 65%,
+      #262626 100%
+    );
 }
