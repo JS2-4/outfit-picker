@@ -39,3 +39,17 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# AI tooling (local agent config, state and instructions — not app code)
+.claude/
+.agents/
+skills-lock.json
+CLAUDE.md
+AGENTS.md
+
+# Vendored ML assets — 328MB of ONNX/WASM chunks that @imgly/background-removal
+# downloads and caches at runtime. Not source; see README for restoring them.
+/public/bg-removal/
+
+# Scratch deliverables, not part of the app
+/app/Claude outputs/
